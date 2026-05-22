@@ -292,6 +292,7 @@
 
             if ((await getDoc(teacherDocRef)).exists()) {
                 dashboardState.whitelistFeedback = `${cleanEmail} is already on the allowed teachers list.`;
+                dashboardState.newTeacherEmail = "";
                 return;
             }
 
