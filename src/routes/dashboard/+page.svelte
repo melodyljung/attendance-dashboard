@@ -277,6 +277,14 @@
             return;
         }
 
+        const confirmation = confirm(
+            `Are you sure you want to add ${dashboardState.newTeacherEmail} as an authorized teacher? This will grant them access to the admin dashboard.`,
+        );
+        if (!confirmation) {
+            dashboardState.newTeacherEmail = "";
+            return;
+        }
+
         const cleanEmail = dashboardState.newTeacherEmail.trim();
 
         try {
