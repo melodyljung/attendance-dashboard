@@ -186,7 +186,7 @@
 
             // 2. Build the exact web link the student's phone needs to visit
             // Note: When you launch online, replace 'localhost:5173' with your actual domain!
-            const studentTargetUrl = `http://localhost:5173/attend/${docRef.id}`;
+            const studentTargetUrl = `attendance-dashboard-lhls9yahd-melody-ljung-s-projects.vercel.app/attend/${docRef.id}`;
 
             // 3. Generate a QR code image link using the public charts API
             dashboardState.generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(studentTargetUrl)}`;
