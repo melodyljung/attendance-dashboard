@@ -1,5 +1,5 @@
 <script>
-    import { db, auth, googleProvider } from "../../firebase.js"; // Notice the double '../../' to jump out two folders!
+    import { db, auth, googleProvider } from "../../firebase.js";
     import {
         onAuthStateChanged,
         signInWithPopup,
@@ -14,8 +14,8 @@
         getDocs,
         deleteDoc,
         doc,
-        addDoc,
         getDoc,
+        setDoc,
     } from "firebase/firestore";
     import { onDestroy } from "svelte";
 
@@ -63,6 +63,10 @@
         newLectureTopic: "",
         generatedQrUrl: "",
         generatedLectureId: "",
+
+        // Fields for adding a new teacher
+        newTeacherEmail: "",
+        whitelistFeedback: "",
     });
 
     const localDateString = new Intl.DateTimeFormat("sv-SE").format(new Date());
@@ -103,27 +107,30 @@
             dashboardState.isCheckingAuth = false;
         } else {
             dashboardState.isAuthorized = false;
-            if (unsubscribe) unsubscribe();
+            if (unsubscribe) unsubscribe(); // Clean up any active listeners if the user logs out
             dashboardState.isCheckingAuth = false;
         }
     });
 
-    // Initial Listener for Today's Lectures (to populate the "Active & Past Sessions" list)
+    // Listener for lectures (to populate the "Active & Past Sessions" list)
     function startLecturesListener() {
         const lecturesRef = collection(db, "lectures");
-        const q = query(lecturesRef);
+        const q = query(lecturesRef, orderBy("createdAt", "desc"));
         return onSnapshot(q, (snapshot) => {
             /** @type {any[]} */
             let tempLectures = [];
             snapshot.forEach((doc) => {
-                tempLectures.push({ id: doc.id, ...doc.data() });
+                tempLectures.push({
+                    ...doc.data(),
+                    id: doc.id,
+                    createdAt: doc.data().createdAt,
+                });
             });
             dashboardState.totalLecturesList = tempLectures;
         });
     }
 
-    // The Active Listener Function
-    // This runs whenever selectedClass or selectedDate changes
+    // Listener for attendance records based on selected class and date filters
     /** * @param {string} className
      * @param {string} dateString
      */
@@ -152,57 +159,69 @@
                 tempRecords.push({ id: doc.id, ...doc.data() });
             });
             tempRecords.sort((a, b) => b.timestamp - a.timestamp);
-            dashboardState.attendanceRecords = tempRecords; // Updating this array repaints the HTML!
+            dashboardState.attendanceRecords = tempRecords;
         });
     }
 
-    // Svelte 5 Effect Runner
-    // $effect runs automatically when the page loads, and re-runs whenever
-    // variables inside it (like selectedClass or selectedDate) are modified.
+    // $effect runs automatically when the page loads, and re-runs whenever variables inside it (like selectedClass or selectedDate) are modified.
     $effect(() => {
-        if (dashboardState.currentUser && dashboardState.isAuthorized &&!dashboardState.isCheckingAuth) {
+        if (
+            dashboardState.currentUser &&
+            dashboardState.isAuthorized &&
+            !dashboardState.isCheckingAuth
+        ) {
             startAttendanceListener(
                 dashboardState.selectedClass,
                 dashboardState.selectedDate,
             );
-             startLecturesListener();
+            startLecturesListener();
         }
     });
 
-    // Create a dynamic lecture session
+    // Function to create a new lecture session, which generates a unique ID, saves it to Firestore, and creates a QR code link for students to check in with.
     async function createLecture() {
         if (!dashboardState.newLectureTopic.trim()) {
             alert("Please type a lecture topic first!");
             return;
         }
 
+        // Generate a unique 7-character alphanumeric ID for the lecture session (for easy retrieval and human readability
+        const chars =
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+        const uniqueId = Array(7)
+            .fill(0)
+            .map(() => chars.charAt(Math.floor(Math.random() * chars.length)))
+            .join("");
+
         try {
             // 1. Save the new lecture session to the 'lectures' collection
-            const docRef = await addDoc(collection(db, "lectures"), {
+            const docRef = doc(db, "lectures", uniqueId); // Use the generated unique ID as the document ID for easy retrieval
+            await setDoc(docRef, {
                 topic: dashboardState.newLectureTopic,
-                createdAt: new Date().toLocaleString("sv-SE"), // Store a human-readable date string for easier querying and display
+                createdAt: new Date().toLocaleString("sv-SE"),
                 dateString: localDateString,
             });
 
-            // 2. Build the exact web link the student's phone needs to visit
-            // Note: When you launch online, replace 'localhost:5173' with your actual domain!
+            // 2. Build the exact web link the student's phone needs to visit to check in for this lecture session using the unique ID
             const studentTargetUrl = `attendance-dashboard-melody-ljung-s-projects.vercel.app/attend/${docRef.id}`;
 
             // 3. Generate a QR code image link using the public charts API
             dashboardState.generatedQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(studentTargetUrl)}`;
             dashboardState.generatedLectureId = docRef.id;
 
-            // alert(`Lecture "${dashboardState.newLectureTopic}" created successfully!`);
+            alert(
+                `Lecture "${dashboardState.newLectureTopic}" created successfully!`,
+            );
         } catch (error) {
             console.error("Error creating lecture:", error);
         }
     }
 
-    // Delete a lecture document by its unique ID
+    // Function to delete a lecture session from Firestore. Note: This does not delete attendance records, just the lecture session itself. If the deleted lecture is currently active on display, it also clears the display.
     /** @param {string} id */
     async function deleteLecture(id) {
         const confirmation = confirm(
-            "Are you sure you want to delete this lecture session? (Note: This won't delete student attendance history logs, just the QR session code itself.)",
+            "Are you sure you want to delete this lecture session? (Note: This won't delete student attendance history logs, just the lecture session itself.)",
         );
         if (!confirmation) return;
 
@@ -221,7 +240,7 @@
         }
     }
 
-    // Clear History Button (GDPR compliant manual deletion)
+    // Function to clear attendance history logs for a specific class and date. This permanently deletes the records from Firestore, so it asks for confirmation first. It also requires the teacher to select a specific class (not "All") to prevent accidental mass deletions.
     async function clearHistory() {
         if (dashboardState.selectedClass === "All") {
             alert("Please select a specific class before clearing data.");
@@ -246,6 +265,39 @@
             });
 
             alert(`Data cleared for ${dashboardState.selectedClass}!`);
+        }
+    }
+
+    // Function to add a new teacher's email to the "allowed_teachers" collection in Firestore, which grants them access to the dashboard.
+    async function addTeacher() {
+        if (!dashboardState.currentUser || !dashboardState.currentUser.email)
+            return;
+        if (!dashboardState.newTeacherEmail.trim()) {
+            alert("Please enter an email address first!");
+            return;
+        }
+
+        const cleanEmail = dashboardState.newTeacherEmail.trim();
+
+        try {
+            const teacherDocRef = doc(db, "allowed_teachers", cleanEmail);
+
+            if ((await getDoc(teacherDocRef)).exists()) {
+                dashboardState.whitelistFeedback = `${cleanEmail} is already on the allowed teachers list.`;
+                return;
+            }
+
+            await setDoc(teacherDocRef, {
+                email: cleanEmail,
+                dateAdded: new Date().toLocaleString("sv-SE"),
+                addedBy: dashboardState.currentUser.email,
+            });
+
+            dashboardState.whitelistFeedback = `Successfully added ${cleanEmail} to allowed teachers list!`;
+            dashboardState.newTeacherEmail = "";
+        } catch (error) {
+            console.error("Error adding teacher:", error);
+            dashboardState.whitelistFeedback = `Error adding ${cleanEmail}. Please try again.`;
         }
     }
 
@@ -288,12 +340,20 @@
                 The account <strong>{dashboardState.currentUser.email}</strong> is
                 not authorized to view this console.
             </p>
-            <button class="clear-btn" onclick={logout}>Log Out</button>
+            <button class="red-btn" onclick={logout}>Log Out</button>
         </div>
     {:else}
         <header>
-            <h1>Teacher Admin Panel</h1>
-            <button class="clear-btn" onclick={logout}>Log Out</button>
+            <h1 class="panel-title">Teacher Admin Panel</h1>
+            <div class="header-buttons">
+                <button
+                    class="red-btn"
+                    onclick={() => (window.location.href = "/")}
+                >
+                    Return to Home
+                </button>
+                <button class="red-btn" onclick={logout}>Log Out</button>
+            </div>
         </header>
 
         <p>
@@ -356,13 +416,9 @@
                         {#each dashboardState.totalLecturesList as lecture}
                             <li>
                                 <div class="lecture-info">
-                                    <a
-                                        href="/attend/{lecture.id}"
-                                        target="_blank"
-                                        class="test-link"
+                                    <span class="lecture-id-badge"
+                                        >{lecture.id}</span
                                     >
-                                        Open Student View Link ↗
-                                    </a>
                                     <span class="lecture-date-badge"
                                         >{lecture.dateString || "No Date"}</span
                                     >
@@ -382,33 +438,33 @@
             </div>
         </section>
 
-        <section class="filters">
-            <div class="filter-group">
-                <label for="classFilter">Class:</label>
-                <select
-                    id="classFilter"
-                    bind:value={dashboardState.selectedClass}
-                >
-                    {#each availableClasses as className}
-                        <option value={className}>{className}</option>
-                    {/each}
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="dateFilter">Date:</label>
-                <input
-                    type="date"
-                    id="dateFilter"
-                    bind:value={dashboardState.selectedDate}
-                />
-            </div>
-            <button class="clear-btn" onclick={clearHistory}
-                >Clear Selected History</button
-            >
-        </section>
-
         <section class="log-container">
             <h2>Live Attendance Logs</h2>
+
+            <section class="filters">
+                <div class="filter-group">
+                    <label for="classFilter">Class:</label>
+                    <select
+                        id="classFilter"
+                        bind:value={dashboardState.selectedClass}
+                    >
+                        {#each availableClasses as className}
+                            <option value={className}>{className}</option>
+                        {/each}
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="dateFilter">Date:</label>
+                    <input
+                        type="date"
+                        id="dateFilter"
+                        bind:value={dashboardState.selectedDate}
+                    />
+                </div>
+                <button class="red-btn clear-btn" onclick={clearHistory}
+                    >Clear Selected History</button
+                >
+            </section>
 
             {#if dashboardState.attendanceRecords.length === 0}
                 <p class="empty-msg">
@@ -420,8 +476,8 @@
                         <li>
                             <div class="log-left">
                                 <span class="time">[{record.time}]</span>
-                                <strong>{record.student}</strong>
                                 <span class="badge">{record.class}</span>
+                                <strong>{record.student}</strong>
                             </div>
                             <div class="log-right">
                                 <span class="lecture-tag"
@@ -432,6 +488,25 @@
                         </li>
                     {/each}
                 </ul>
+            {/if}
+        </section>
+
+        <section class="add-teacher-section">
+            <h2>Add Authorized Teacher</h2>
+            <div class="input-row">
+                <input
+                    type="email"
+                    placeholder="Enter teacher's email..."
+                    bind:value={dashboardState.newTeacherEmail}
+                />
+                <button class="create-btn" onclick={addTeacher}
+                    >Add Teacher</button
+                >
+            </div>
+            {#if dashboardState.whitelistFeedback}
+                <p class="whitelist-feedback">
+                    {dashboardState.whitelistFeedback}
+                </p>
             {/if}
         </section>
     {/if}

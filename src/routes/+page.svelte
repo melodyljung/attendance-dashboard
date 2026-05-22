@@ -13,17 +13,16 @@
 
 <main class="landing-container">
     <header class="hero">
-        <h1>⏱️ SmartAttendance</h1>
-        <p>Real-time lecture check-ins and QR management</p>
+        <h1>Student Attendance</h1>
+        <p>Attendance management for students and teachers</p>
     </header>
 
     <div class="portal-grid">
         <section class="portal-card teacher-card">
-            <div class="icon-bubble">📋</div>
             <h2>Teachers & Staff</h2>
             <p>
                 Access your admin console, manage allowed emails, generate
-                secure session QR codes, and view live logs.
+                secure session QR codes, and view attendance logs.
             </p>
             <a href="/dashboard" class="action-btn teacher-btn"
                 >Go to Admin Dashboard →</a
@@ -31,11 +30,10 @@
         </section>
 
         <section class="portal-card student-card">
-            <div class="icon-bubble">🎓</div>
             <h2>Students</h2>
             <p>
                 Enter the unique 7-character lecture code provided by your
-                instructor to sign into today's attendance log.
+                teacher to register for the lecture.
             </p>
 
             <form
@@ -47,7 +45,7 @@
             >
                 <input
                     type="text"
-                    placeholder="e.g., abc1234"
+                    placeholder="Example: ABC1234"
                     bind:value={inputLectureId}
                     maxlength="50"
                 />
@@ -77,6 +75,9 @@
     .hero {
         text-align: center;
         margin-bottom: 50px;
+        flex-direction: column;
+        display: flex;
+        align-items: center;
     }
     .hero h1 {
         font-size: 2.8rem;
@@ -104,18 +105,7 @@
             0 2px 4px -1px rgba(0, 0, 0, 0.03);
         display: flex;
         flex-direction: column;
-        align-items: flex-start;
-    }
-    .icon-bubble {
-        font-size: 2rem;
-        background: #f1f5f9;
-        width: 60px;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 12px;
-        margin-bottom: 20px;
+        align-items: stretch;
     }
     .portal-card h2 {
         font-size: 1.5rem;
@@ -130,7 +120,7 @@
     }
     .action-btn {
         display: inline-block;
-        width: 100%;
+        /* width: 100%; */
         text-align: center;
         padding: 14px 20px;
         border-radius: 8px;
@@ -142,11 +132,11 @@
         font-size: 1rem;
     }
     .teacher-btn {
-        background: #2563eb;
+        background: #fe9fe1;
         color: white;
     }
     .teacher-btn:hover {
-        background: #1d4ed8;
+        background: rgb(233, 101, 194);
     }
     .join-form {
         width: 100%;
@@ -155,7 +145,6 @@
         gap: 12px;
     }
     .join-form input {
-        width: 100%;
         padding: 12px 16px;
         border: 2px solid #cbd5e1;
         border-radius: 8px;
@@ -164,14 +153,14 @@
         transition: border-color 0.2s;
     }
     .join-form input:focus {
-        border-color: #0ea5e9;
+        border-color: #fe9fe1;
     }
     .student-btn {
-        background: #0ea5e9;
+        background: #fe9fe1;
         color: white;
     }
     .student-btn:hover:not(:disabled) {
-        background: #0284c7;
+        background: rgb(233, 101, 194);
     }
     .student-btn:disabled {
         background: #cbd5e1;

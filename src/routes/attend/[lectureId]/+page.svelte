@@ -11,9 +11,9 @@
         "SA1", "SA2", "SA3"
     ];
 
-    /** @type {import('firebase/auth').User | null} */
+    /** @type {import('firebase/auth').User | null} */ // Type annotation for better clarity on the user state
     let user = $state(null);
-    let selectedClass = $state('NA3A'); // Used for the first-time picker dropdown
+    let selectedClass = $state('EK1A'); // Used for the first-time picker dropdown
     let checkedIn = $state(false);
     let hasProfile = $state(false);
     let loggedTime = $state('');
@@ -34,35 +34,19 @@
         }
     });
 
-    // RUNS IMMEDIATELY ON PAGE LOAD
+    // Runs once on page load to verify the lecture session and pre-check their attendance status if they're already logged in
     $effect(() => {
         verifyLectureSession();
         
-        // If they are already logged in when opening the page, check if they already signed the sheet
+        // If they are already logged in when opening the page, check if they already checked in for this lecture to skip straight to the final screen state
         if (user && user.email && currentLectureId) {
             checkIfAlreadyCheckedIn();
         }
     });
 
-    // New helper function to pre-check their status
-    async function checkIfAlreadyCheckedIn() {
-        if (!user || !user.email) return;
-        
-        const q = query(
-            collection(db, "attendance"),
-            where("email", "==", user.email),
-            where("lectureId", "==", currentLectureId)
-        );
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-            loggedTime = snapshot.docs[0].data().time || ''; // Grabs the time they originally checked in for display
-            checkedIn = true; // Skip straight to the "✓ Attendance Logged" screen state!
-        }
-    }
-
-    // 1. Verify the lecture without forcing a class lock
+    // Function to verify the lecture without forcing a class lock
     async function verifyLectureSession() {
-        // Guard clause: If the lecture ID from the URL is missing, stop immediately.
+        // Guard clause: If the lecture ID from the URL is missing, stop immediately and show an error message
         if (!currentLectureId) {
             lectureTopic = "No lecture ID provided. Please scan a valid QR code.";
             lectureIsValid = false;
@@ -74,7 +58,7 @@
 
         if (lectureSnap.exists()) {
             const lectureData = lectureSnap.data();
-            lectureTopic = lectureData.topic; // Only pull the name of the lesson!
+            lectureTopic = lectureData.topic; // Only pull the name of the lesson for display
             lectureIsValid = true;
         } else {
             lectureTopic = "Invalid or expired lecture link. Please ask your teacher for a new QR code.";
@@ -90,8 +74,7 @@
 
         if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
-            // 2. Load their actual permanent school class from their profile document
-            selectedClass = userData.class; 
+            selectedClass = userData.class; // Pre-fills the dropdown with their saved class for a more personalized experience
             hasProfile = true; 
         } else {
             hasProfile = false;
@@ -113,7 +96,7 @@
 
         try {
             const localDateString = new Intl.DateTimeFormat('sv-SE').format(new Date());
-            const exactTime = new Date().toLocaleString("sv-SE");
+            const exactTime = new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
             // Look for an existing receipt for this email + lecture combination
             const attendanceRef = collection(db, "attendance");
@@ -125,18 +108,18 @@
             
             const querySnapshot = await getDocs(duplicateQuery);
 
-            // If the snapshot isn't empty, they've already checked in!
+            // If the snapshot isn't empty, they've already checked in for this lecture
             if (!querySnapshot.empty) {
                 checkedIn = true; // Flips the screen UI to the success/done state safely
                 alert("You have already checked into this lecture session!");
-                return; // Stops the function dead in its tracks so no duplicate data is written
+                return; // Exits the function to prevent adding a duplicate attendance record
             }
 
             // Log uses the student's personal class + the shared lecture topic
             await addDoc(collection(db, "attendance"), {
                 student: user.displayName,
                 email: user.email,
-                class: selectedClass, // Dynamic based on who is logged in!
+                class: selectedClass,
                 lectureId: currentLectureId, 
                 lectureTopic: lectureTopic,
                 time: exactTime,
@@ -152,13 +135,29 @@
         }
     }
 
-    async function login() { await signInWithPopup(auth, googleProvider); }
-    async function logout() { await signOut(auth); }
+    // Function to pre-check their status
+    async function checkIfAlreadyCheckedIn() {
+        if (!user || !user.email) return;
+        
+        const q = query(
+            collection(db, "attendance"),
+            where("email", "==", user.email),
+            where("lectureId", "==", currentLectureId)
+        );
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            loggedTime = snapshot.docs[0].data().time || ''; // Grabs the time they originally checked in for display
+            checkedIn = true; // Skip straight to the "✓ Attendance Logged" screen state
+        }
+    }
 
     // Lets students jump back to the onboarding state to edit their profile
     function enableProfileEditing() {
         hasProfile = false;
     }
+
+    async function login() { await signInWithPopup(auth, googleProvider); }
+    async function logout() { await signOut(auth); }
 </script>
 
 <main>
@@ -172,6 +171,7 @@
     <section class="card">
         {#if !lectureIsValid}
             <p class="error-msg">{lectureTopic}</p>
+            <a href="/" class="leave-btn">Return to Home</a>
 
         {:else if !user}
             <h2>Class Registration</h2>
@@ -218,7 +218,6 @@
 </main>
 
 <style>
-    /* Quick clean, modern styling */
     main {
         font-family: "Lucida Sans", "Lucida Sans Regular", "Lucida Grande",
             "Lucida Sans Unicode", Geneva, Verdana, sans-serif;
@@ -261,6 +260,14 @@
         border-radius: 4px;
         cursor: pointer;
     }
+    .leave-btn {
+        color: #e73c67;
+        font-size: 0.85rem;
+        text-decoration: none;
+    }
+    .leave-btn:hover {
+        text-decoration: underline;
+    }
 
     .google-blue-btn {
         display: flex;
@@ -269,7 +276,7 @@
         color: white;
         border: none;
         border-radius: 2px;
-        padding: 1px; /* Creates the slim border gap around the white icon box */
+        padding: 1px;
         height: 40px;
         font-size: 14px;
         font-weight: 500;
@@ -281,10 +288,9 @@
     }
 
     .google-blue-btn:hover {
-        filter: brightness(1.05); /* Slightly brightens the blue on hover */
+        filter: brightness(1.05);
     }
 
-    /* The crisp white square on the left that holds the 'G' */
     .icon-wrapper {
         background-color: #ffffff;
         border-radius: 1px;
@@ -295,7 +301,6 @@
         justify-content: center;
     }
 
-    /* Styling the G to look bold and match Google's geometry */
     .google-letter {
         color: #4285f4;
         font-size: 22px;
@@ -303,10 +308,9 @@
         font-family: "Product Sans", Arial, sans-serif;
     }
 
-    /* Centers the text perfectly in the remaining blue space */
     .btn-text-blue {
         margin: 0 auto;
-        padding-right: 38px; /* Perfectly balances out the icon width on the left */
+        padding-right: 38px; 
     }
     .submit-btn {
         background: #fe9fe1;
@@ -330,7 +334,7 @@
     }
     .edit-profile-btn:hover {
         opacity: 1;
-        color: #fe9fe1; /* Uses your signature accent pink on hover! */
+        color: #fe9fe1;
     }
     .success-box {
         text-align: center;
