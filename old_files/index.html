@@ -1,0 +1,57 @@
+<!-- UNUSED: these are old files from the original project, kept here for reference but not used in the final implementation. -->
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Lecture Attendance</h2>
+
+        <label for="studentName">Full Name:</label>
+        <input type="text" id="studentName" placeholder="Enter your name">
+
+        <label for="classSelect">Select Class:</label>
+        <select id="classSelect">
+            <option value="">-- Choose a Class --</option>
+            <option value="NA3A">NA3A</option>
+            <option value="NA3B">NA3B</option>
+            <option value="NA3C">NA3C</option>
+        </select>
+
+        <button id="submitBtn">Check In</button>
+
+        <p id="message"></p>
+
+        <div class="filter-section">
+            <h3>Recent Check-Ins</h3>
+
+            <label for="filterClass">Filter by Class:</label>
+            <select id="filterClass">
+                <option value="all">-- All Classes --</option>
+                <option value="NA3A">NA3A</option>
+                <option value="NA3B">NA3B</option>
+                <option value="NA3C">NA3C</option>
+            </select>
+
+            <label for="filterDate">Date:</label>
+            <input type="date" id="filterDate">
+
+            <button id="clearBtn" style="margin-left: 20px;">
+                Clear Selected History
+            </button>
+
+            <ul id="historyList"></ul>
+        </div>
+
+
+    </div>
+    <script type="module" src="app.js"></script>
+</body>
+
+</html>
