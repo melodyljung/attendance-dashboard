@@ -2,15 +2,16 @@
 import { initializeApp } from "firebase/app";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, where, getDocs, deleteDoc, doc } from "firebase/firestore";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
+import { PUBLIC_FIREBASE_API_KEY, PUBLIC_FIREBASE_APPID, PUBLIC_FIREBASE_AUTHDOMAIN, PUBLIC_FIREBASE_MESSAGINGSENDERID, PUBLIC_FIREBASE_PROJECTID, PUBLIC_FIREBASE_STORAGEBUCKET, } from "$env/static/public";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyBIFPg8JocImYtoRe-84a-nrbUaaKiQNcM",
-    authDomain: "student-attendance-170806.firebaseapp.com",
-    projectId: "student-attendance-170806",
-    storageBucket: "student-attendance-170806.firebasestorage.app",
-    messagingSenderId: "867670859335",
-    appId: "1:867670859335:web:793fd7fcf88ef82d2a5b62"
+    apiKey: PUBLIC_FIREBASE_API_KEY,
+    authDomain: PUBLIC_FIREBASE_AUTHDOMAIN,
+    projectId: PUBLIC_FIREBASE_PROJECTID,
+    storageBucket: PUBLIC_FIREBASE_STORAGEBUCKET,
+    messagingSenderId: PUBLIC_FIREBASE_MESSAGINGSENDERID,
+    appId: PUBLIC_FIREBASE_APPID
 };
 
 // Initialize Firebase
